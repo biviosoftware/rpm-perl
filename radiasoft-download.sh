@@ -1,56 +1,15 @@
-. ~/.bashrc
-set -euo pipefail
-
-rpm_perl_install_rpm() {
-    local root=$1
-    if [[ ! $rpm_perl_install_dir ]]; then
-        return
-    fi
-    local f="$(ls -t perl-"$root"*rpm | head -1)"
-    install -m 444 "$f" "$rpm_perl_install_dir/"
-    local l="$rpm_perl_install_dir/perl-$root.rpm"
-    rm -f "$l"
-    ln -s "$f" "$l"
-}
-
-rpm_perl_create_bivio_perl() {
-    umask 077
-    install_tmp_dir
-    version
-    docker run -i --rm -v $PWD:/rpm-perl biviosoftware/perl <<'EOF'
-set -euo pipefail
-cd /rpm-perl
-v=$(python -c 'import json; print json.load(open("/rsmanifest.json"))["image"]["version"]')
-x=(
-    /usr/java
-    /usr/local/share/catdoc
-    /usr/local/lib64/perl5
-    /usr/local/bin/catdoc
-    /usr/local/bin/catppt
-    /usr/local/bin/docx2txt
-    /usr/local/bin/html2ps
-    /usr/local/bin/ldat
-    /usr/local/bin/perl2html
-    /usr/local/bin/trgrep
-    /usr/local/bin/unixtime
-    /usr/local/bin/xls2csv
-    /usr/local/awstats
-    /etc/postgrey
-    /usr/sbin/postgrey
-    /usr/share/postgrey
-)
-fpm -t rpm -s dir -n bivio-perl -v "$v" --rpm-auto-add-directories --rpm-use-file-permissions "${x[@]}"
-EOF
-    rpm_perl_install_rpm Bivio
-}
+#!/bin/bash
 
 rpm_perl_build() {
     local root=$1 exe_prefix=$2 app_root=$3 facade_uri=$4
     umask 022
     cd "$build_guest_conf"
     local build_d=$PWD
+    local facades_d=/var/www/facades
     local javascript_d=/usr/share/Bivio-bOP-javascript
     local flags=()
+    local version=$(date -u +%Y%m%d.%H%M%S)
+    local fpm_args=()
     if [[ $root == Bivio ]]; then
         mkdir "$javascript_d"
         # No channels here, because the image gets the channel tag
@@ -71,8 +30,13 @@ Bivio::DefaultBConf->merge_dir({
 });
 EOF
         chmod 444 /etc/bivio.bconf
+        fpm_args+=( "$javascript_d" )
     else
         install_download perl-Bivio.rpm
+        fpm_args+=(
+            --rpm-auto-add-exclude-directories "$facades_d"
+            --rpm-auto-add-exclude-directories "$bop_d"
+        )
     fi
     local app_d=${app_root//::/\/}
     local files_d=$app_d/files
@@ -88,6 +52,10 @@ EOF
         local src_d=/usr/share/Bivio-bOP-src
         mkdir -m 755 -p "$src_d"
         cp -a "$bop_d/$root" "$src_d"
+        # perl-Bivio installs directory
+        fpm_args+=( "$bop_d" "$src_d" )
+    else
+        fpm_args+=( "$bop_d/$root" )
     fi
     perl -p -e "s{EXE_PREFIX}{$exe_prefix}g;s{ROOT}{$root}g" <<'EOF' > Makefile.PL
 use strict;
@@ -123,8 +91,10 @@ ExtUtils::MakeMaker::WriteMakefile(
 EOF
     perl Makefile.PL DESTDIR=/ INSTALLDIRS=vendor < /dev/null
     make POD2MAN=true
-    make POD2MAN=true pure_install
-    local facades_d=/var/www/facades
+    fpm_args+=(
+        $( make POD2MAN=true pure_install 2>&1 | perl -n -e 'm{Installing (/usr/bin/\S+)} && print("$1\n")' )
+        "/usr/share/perl5/vendor_perl/$root"
+    )
     rm -rf "$facades_d"
     local tgt=$facades_d
     mkdir -p "$(dirname "$tgt")" "$tgt"
@@ -171,17 +141,64 @@ EOF
             ln -s -r bivio.org via.rob
         )
     fi
+    if [[ $root == Bivio ]]; then
+        # fpm is fickle if the directory is in the exclude list so need to be very explicit here
+        # "Cannot copy file, the destination path is probably a directory and I attempted to write a file."
+        fpm_args+=( "$facades_d" )
+    else
+        fpm_args+=( "$facades_d"/* )
+    fi
+    cd /rpm-perl
+    # fpm should not add the /usr/share or /var/www dirs to the %files of the rpm
+    fpm -t rpm -s dir -n "perl-$root" -v "$version" --rpm-auto-add-directories \
+        --rpm-auto-add-exclude-directories /usr/share/perl5 \
+        --rpm-auto-add-exclude-directories /usr/share/perl5/vendor_perl \
+        --rpm-auto-add-exclude-directories /var/www \
+        --rpm-use-file-permissions "${fpm_args[@]}"
+
 }
 
-may not be gaut
-need the list of files above
-/usr/bin/b-* bivio
-/usr/share/perl5/vendor_perl/Artisans
-/var/www/facades/*
-/usr/share/Bivio-bOP-src
-/usr/share/Bivio-bOP-javascript
-# Only make the direcotry for perl-Bivio
-/usr/src/bop
+rpm_perl_create_bivio_perl() {
+    umask 077
+    install_tmp_dir
+    docker run -i --network=host --rm -v $PWD:/rpm-perl biviosoftware/perl <<'EOF'
+set -euo pipefail
+cd /rpm-perl
+v=$(python -c 'import json; print json.load(open("/rsmanifest.json"))["image"]["version"]')
+x=(
+    /usr/java
+    /usr/local/share/catdoc
+    /usr/local/lib64/perl5
+    /usr/local/bin/catdoc
+    /usr/local/bin/catppt
+    /usr/local/bin/docx2txt
+    /usr/local/bin/html2ps
+    /usr/local/bin/ldat
+    /usr/local/bin/perl2html
+    /usr/local/bin/trgrep
+    /usr/local/bin/unixtime
+    /usr/local/bin/xls2csv
+    /usr/local/awstats
+    /etc/postgrey
+    /usr/sbin/postgrey
+    /usr/share/postgrey
+)
+fpm -t rpm -s dir -n bivio-perl -v "$v" --rpm-auto-add-directories --rpm-use-file-permissions "${x[@]}"
+EOF
+    rpm_perl_install_rpm Bivio
+}
+
+rpm_perl_install_rpm() {
+    local root=$1
+    if [[ ! $rpm_perl_install_dir ]]; then
+        return
+    fi
+    local f="$(ls -t perl-"$root"*rpm | head -1)"
+    install -m 444 "$f" "$rpm_perl_install_dir/"
+    local l="$rpm_perl_install_dir/perl-$root.rpm"
+    rm -f "$l"
+    ln -s "$f" "$l"
+}
 
 rpm_perl_main() {
     if (( $# < 1 )); then
@@ -203,25 +220,25 @@ rpm_perl_main() {
             return
             ;;
         Artisans)
-            exec_prefix=a
+            exe_prefix=a
             ;;
         Bivio)
             app_root=Bivio::PetShop
-            exec_prefix=b
+            exe_prefix=b
             facade_uri=petshop
             ;;
         BivioOrg)
-            exec_prefix=bo
+            exe_prefix=bo
             facade_uri=bivio.org
             ;;
         Sensorimotor)
-            exec_prefix=sp
+            exe_prefix=sp
             ;;
         Societas)
-            exec_prefix=s
+            exe_prefix=s
             ;;
         Zoe)
-            exec_prefix=zoe
+            exe_prefix=zoe
             facade_uri=zoescore
             ;;
         *)
@@ -230,14 +247,14 @@ rpm_perl_main() {
     esac
     umask 077
     install_tmp_dir
-    cp ~/.netrc container-conf/netrc
-    local version=$(date -u +%Y%m%d.%H%M%S)
-    docker run -i --rm -v $PWD:/rpm-perl biviosoftware/perl <<EOF
+    cp ~/.netrc netrc
+    docker run -i --network=host --rm -v $PWD:/rpm-perl biviosoftware/perl <<EOF
+. ~/.bashrc
 cd /rpm-perl
 install -m 400 netrc ~/.netrc
-export install_server='$installer_server' install_channel='$install_channel' install_debug='$install_debug'
-curl radia.run | bash -s biviosoftware/rpm-perl _build '$root' '$exe_prefix' '$app_root' '$facade_uri' '$version'
-
+export install_server='$install_server' install_channel='$install_channel' install_debug='$install_debug'
+env
+curl radia.run | bash -s biviosoftware/rpm-perl _build '$root' '$exe_prefix' '$app_root' '$facade_uri'
 EOF
     rpm_perl_install_rpm "$root"
 }
