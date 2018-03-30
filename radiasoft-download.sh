@@ -32,7 +32,7 @@ EOF
         chmod 444 /etc/bivio.bconf
         fpm_args+=( "$javascript_d" )
     else
-        install_download perl-Bivio.rpm
+        install_yum_install https://depot.radiasoft.org/foss/perl-Bivio.rpm
         fpm_args+=(
             --rpm-auto-add-exclude-directories "$facades_d"
             --rpm-auto-add-exclude-directories "$bop_d"
