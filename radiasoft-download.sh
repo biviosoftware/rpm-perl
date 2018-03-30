@@ -253,7 +253,6 @@ rpm_perl_main() {
 cd /rpm-perl
 install -m 400 netrc ~/.netrc
 export install_server='$install_server' install_channel='$install_channel' install_debug='$install_debug'
-env
 curl radia.run | bash -s biviosoftware/rpm-perl _build '$root' '$exe_prefix' '$app_root' '$facade_uri'
 EOF
     rpm_perl_install_rpm "perl-$root"
