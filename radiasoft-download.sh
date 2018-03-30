@@ -185,17 +185,17 @@ x=(
 )
 fpm -t rpm -s dir -n bivio-perl -v "$v" --rpm-auto-add-directories --rpm-use-file-permissions "${x[@]}"
 EOF
-    rpm_perl_install_rpm Bivio
+    rpm_perl_install_rpm bivio-perl
 }
 
 rpm_perl_install_rpm() {
-    local root=$1
+    local base=$1
     if [[ ! $rpm_perl_install_dir ]]; then
         return
     fi
-    local f="$(ls -t perl-"$root"*rpm | head -1)"
+    local f="$(ls -t "$base"*rpm | head -1)"
     install -m 444 "$f" "$rpm_perl_install_dir/"
-    local l="$rpm_perl_install_dir/perl-$root.rpm"
+    local l="$rpm_perl_install_dir/$base.rpm"
     rm -f "$l"
     ln -s "$f" "$l"
 }
@@ -256,7 +256,7 @@ export install_server='$install_server' install_channel='$install_channel' insta
 env
 curl radia.run | bash -s biviosoftware/rpm-perl _build '$root' '$exe_prefix' '$app_root' '$facade_uri'
 EOF
-    rpm_perl_install_rpm "$root"
+    rpm_perl_install_rpm "perl-$root"
 }
 
 
