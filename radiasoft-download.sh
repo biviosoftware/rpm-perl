@@ -190,14 +190,17 @@ EOF
 
 rpm_perl_install_rpm() {
     local base=$1
-    if [[ ! $rpm_perl_install_dir ]]; then
+    if [[ ! ${rpm_perl_install_dir:-} ]]; then
         return
     fi
     local f="$(ls -t "$base"*rpm | head -1)"
-    install -m 444 "$f" "$rpm_perl_install_dir/"
-    local l="$rpm_perl_install_dir/$base.rpm"
-    rm -f "$l"
-    ln -s "$f" "$l"
+    # Allow multiple directories separated by spaces
+    for d in $rpm_perl_install_dir; do
+        install -m 444 "$f" "$d/"
+        local l="$d/$base.rpm"
+        rm -f "$l"
+        ln -s "$f" "$l"
+    done
 }
 
 rpm_perl_main() {
