@@ -4,7 +4,6 @@ set -euo pipefail
 rpm_perl_build() {
     local root=$1 exe_prefix=$2 app_root=$3 facade_uri=$4
     umask 022
-    cd "$build_guest_conf"
     local build_d=$PWD
     local facades_d=/var/www/facades
     local javascript_d=/usr/share/Bivio-bOP-javascript
