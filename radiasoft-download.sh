@@ -3,6 +3,7 @@ set -euo pipefail
 
 rpm_perl_build() {
     local root=$1 exe_prefix=$2 app_root=$3 facade_uri=$4
+    install_tmp_dir
     umask 022
     local build_d=$PWD
     local facades_d=/var/www/facades
