@@ -169,6 +169,7 @@ x=(
     /usr/java
     /usr/local/share/catdoc
     /usr/local/lib64/perl5
+    /usr/local/share/perl5
     /usr/local/bin/catdoc
     /usr/local/bin/catppt
     /usr/local/bin/docx2txt
