@@ -163,8 +163,8 @@ rpm_perl_create_bivio_perl() {
     install_tmp_dir
     docker run -i --network=host --rm -v $PWD:/rpm-perl biviosoftware/perl <<'EOF'
 set -euo pipefail
+version=$(date -u +%Y%m%d.%H%M%S)
 cd /rpm-perl
-v=$(python -c 'import json; print json.load(open("/rsmanifest.json"))["image"]["version"]')
 x=(
     /usr/java
     /usr/local/share/catdoc
@@ -184,7 +184,7 @@ x=(
     /usr/sbin/postgrey
     /usr/share/postgrey
 )
-fpm -t rpm -s dir -n bivio-perl -v "$v" --rpm-auto-add-directories --rpm-use-file-permissions "${x[@]}"
+fpm -t rpm -s dir -n bivio-perl -v "$version" --rpm-auto-add-directories --rpm-use-file-permissions "${x[@]}"
 EOF
     rpm_perl_install_rpm bivio-perl
 }
