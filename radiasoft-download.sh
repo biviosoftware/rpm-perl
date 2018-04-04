@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 rpm_perl_build() {
     local root=$1 exe_prefix=$2 app_root=$3 facade_uri=$4
@@ -40,7 +41,7 @@ EOF
     fi
     local app_d=${app_root//::/\/}
     local files_d=$app_d/files
-    git clone "${flags[@]}" https://github.com/biviosoftware/perl-"$root" --depth 1
+    git clone ${flags[@]+"${flags[@]}"} https://github.com/biviosoftware/perl-"$root" --depth 1
     mv perl-"$root" "$root"
     # POSTIT: radiasoft/rsconf/rsconf/component/btest.py
     local bop_d="/usr/src/bop"
