@@ -8,6 +8,7 @@ rpm_perl_build() {
     local build_d=$PWD
     local facades_d=/var/www/facades
     local javascript_d=/usr/share/Bivio-bOP-javascript
+    local bop_d=/usr/src/bop
     local flags=()
     local version=$(date -u +%Y%m%d.%H%M%S)
     local fpm_args=()
@@ -44,7 +45,6 @@ EOF
     git clone ${flags[@]+"${flags[@]}"} https://github.com/biviosoftware/perl-"$root" --depth 1
     mv perl-"$root" "$root"
     # POSTIT: radiasoft/rsconf/rsconf/component/btest.py
-    local bop_d="/usr/src/bop"
     mkdir -p "$bop_d"
     rsync -a --exclude .git "$root" "$bop_d/"
     chmod -R a+rX "$bop_d"
