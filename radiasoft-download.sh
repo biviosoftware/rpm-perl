@@ -34,7 +34,7 @@ EOF
         chmod 444 /etc/bivio.bconf
         fpm_args+=( "$javascript_d" )
     else
-        install_yum_install https://depot.radiasoft.org/foss/perl-Bivio.rpm
+        install_yum_install https://depot.radiasoft.org/foss/perl-Bivio-dev.rpm
         fpm_args+=(
             --rpm-auto-add-exclude-directories "$facades_d"
             --rpm-auto-add-exclude-directories "$bop_d"
@@ -195,13 +195,17 @@ rpm_perl_install_rpm() {
     if [[ ! ${rpm_perl_install_dir:-} ]]; then
         return
     fi
-    local f="$(ls -t "$base"*rpm | head -1)"
-    # Allow multiple directories separated by spaces
+    # Y2100
+    local f="$(ls -t "$base"-20[0-9][0-9]*rpm | head -1)"
+    # Contains multiple directories separated by spaces
+    local c d l
     for d in $rpm_perl_install_dir; do
         install -m 444 "$f" "$d/"
-        local l="$d/$base.rpm"
-        rm -f "$l"
-        ln -s "$f" "$l"
+        for c in dev alpha; do
+            l="$d/$base-$c.rpm"
+            rm -f "$l"
+            ln -s "$f" "$l"
+        done
     done
 }
 
