@@ -136,12 +136,24 @@ EOF
             ln -s -r "$javascript_d" "$facade/plain/b"
         fi
     done
-    if [[ $facade_uri == bivio.org ]]; then
-        (
-            cd "$facades_d"
-            ln -s -r bivio.org via.rob
-        )
-    fi
+    case $root in
+        Societas)
+            (
+                cd "$build_d"/Societas/files/java
+                javac *.java
+                jar -cf /usr/java/societas.jar *.class
+            )
+            fpm_args+=( /usr/java/societas.jar )
+            ;;
+        BivioOrg)
+            (
+                cd "$facades_d"
+                ln -s -r bivio.org via.rob
+            )
+            ;;
+        *)
+            ;;
+    esac
     if [[ $root == Bivio ]]; then
         # fpm is fickle if the directory is in the exclude list so need to be very explicit here
         # "Cannot copy file, the destination path is probably a directory and I attempted to write a file."
@@ -155,6 +167,7 @@ EOF
         --rpm-auto-add-exclude-directories /usr/share/perl5 \
         --rpm-auto-add-exclude-directories /usr/share/perl5/vendor_perl \
         --rpm-auto-add-exclude-directories /var/www \
+        --rpm-auto-add-exclude-directories /usr/java \
         --rpm-use-file-permissions "${fpm_args[@]}"
 
 }
