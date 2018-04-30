@@ -9,7 +9,6 @@ rpm_perl_build() {
     local facades_d=/var/www/facades
     local javascript_d=/usr/share/Bivio-bOP-javascript
     local bop_d=/usr/src/bop
-    local flags=()
     local version=$(date -u +%Y%m%d.%H%M%S)
     local fpm_args=()
     if [[ $root == Bivio ]]; then
@@ -21,7 +20,6 @@ rpm_perl_build() {
         cd ..
         rm -rf javascript-Bivio
         #TODO(robnagler) move this to master when in production
-        flags=( --branch robnagler --single-branch )
         cat > /etc/bivio.bconf <<'EOF'
 use Bivio::DefaultBConf;
 Bivio::DefaultBConf->merge_dir({
@@ -42,7 +40,7 @@ EOF
     fi
     local app_d=${app_root//::/\/}
     local files_d=$app_d/files
-    git clone ${flags[@]+"${flags[@]}"} https://github.com/biviosoftware/perl-"$root" --depth 1
+    git clone https://github.com/biviosoftware/perl-"$root" --depth 1
     mv perl-"$root" "$root"
     # POSTIT: radiasoft/rsconf/rsconf/component/btest.py
     mkdir -p "$bop_d"
