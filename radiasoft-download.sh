@@ -146,7 +146,7 @@ EOF
         BivioOrg)
             (
                 cd "$facades_d"
-                ln -s -r bivio.org via.rob
+                ln -s -r bivio.org viarob.com
             )
             ;;
         *)
