@@ -2,7 +2,12 @@
 set -euo pipefail
 
 rpm_perl_build() {
-    local root=$1 exe_prefix=$2 app_root=$3 facade_uri=$4
+    local rpm_base=$1
+    if [[ $rpm_base == bivio-named ]]; then
+        rpm_perl_build_named "$rpm_base"
+        return
+    fi
+    local root=$2 exe_prefix=$3 app_root=$4 facade_uri=$5
     install_tmp_dir
     umask 022
     local build_d=$PWD
@@ -40,8 +45,8 @@ EOF
     fi
     local app_d=${app_root//::/\/}
     local files_d=$app_d/files
-    git clone https://github.com/biviosoftware/perl-"$root" --depth 1
-    mv perl-"$root" "$root"
+    git clone https://github.com/biviosoftware/"$rpm_base" --depth 1
+    mv "$rpm_base" "$root"
     # POSTIT: radiasoft/rsconf/rsconf/component/btest.py
     mkdir -p "$bop_d"
     rsync -a --exclude .git "$root" "$bop_d/"
@@ -161,13 +166,49 @@ EOF
     fi
     cd /rpm-perl
     # fpm should not add the /usr/share or /var/www dirs to the %files of the rpm
-    fpm -t rpm -s dir -n "perl-$root" -v "$version" --rpm-auto-add-directories \
+    fpm -t rpm -s dir -n "$rpm_base" -v "$version" --rpm-auto-add-directories \
         --rpm-auto-add-exclude-directories /usr/share/perl5 \
         --rpm-auto-add-exclude-directories /usr/share/perl5/vendor_perl \
         --rpm-auto-add-exclude-directories /var/www \
         --rpm-auto-add-exclude-directories /usr/java \
         --rpm-use-file-permissions "${fpm_args[@]}"
+}
 
+rpm_perl_build_named() {
+    local rpm_base=$1
+    install_tmp_dir
+    # named config is not world readable
+    umask 027
+    local build_d=$PWD
+    local version=$(date -u +%Y%m%d.%H%M%S)
+    local fpm_args=()
+    install_yum_install https://depot.radiasoft.org/foss/perl-Bivio-dev.rpm
+    git clone https://github.com/biviosoftware/pkgs --depth 1
+    (cat pkgs/bivio-named.include; echo '->{NamedConf};') | bivio NamedConf generate
+    local db_d=/srv/bivio_named/db
+    mkdir -p "$db_d"
+    tail -n +11 etc/named.conf > "$db_d/zones.conf"
+    # We expect something like: zone .*.in-addr.arpa" in {
+    # if that's not there, we have a problem. Better to break now
+    # than later.
+    if [[ ! $(head -1 "$db_d/zones.conf") = 'zone "." in {' ]]; then
+        install_err "$db_d/zones.conf: expecting zone "." in {: got $(head -5 $db_d/zones.conf)"
+    fi
+    mv var/named/* "$db_d"
+    local tmp_conf=$build_d/tmp.conf
+    perl -pe "s{/var/named}{$db_d}" etc/named.conf > "$tmp_conf"
+    local res=$(
+        named-checkconf -z "$tmp_conf" \
+        | grep -v 'zone.*loaded.serial' \
+        | grep -v '_sip.*/SRV.*is a CNAME .illegal.'
+    )
+    if [[ $res ]]; then
+        install_err "named-checkconf failed with: $res"
+    fi
+    cd /rpm-perl
+    # rpm has to be world readable, because we don't know who called this program
+    umask 022
+    fpm -t rpm -s dir -n "$rpm_base" -v "$version" --rpm-use-file-permissions "$db_d/"*
 }
 
 rpm_perl_create_bivio_perl() {
@@ -229,11 +270,16 @@ rpm_perl_main() {
     local exe_prefix
     local app_root=$root
     local facade_uri=$root_lc
+    local rpm_base build_args
     case $1 in
         _build)
             shift
             rpm_perl_build "$@"
             return
+            ;;
+        bivio-named)
+            rpm_base=bivio-named
+            build_args=$rpm_base
             ;;
         bivio-perl)
             rpm_perl_create_bivio_perl
@@ -268,14 +314,15 @@ rpm_perl_main() {
     umask 077
     install_tmp_dir
     cp ~/.netrc netrc
+    : ${build_args:="perl-$root $root $exe_prefix $app_root $facade_uri"}
     docker run -i --network=host --rm -v $PWD:/rpm-perl biviosoftware/perl <<EOF
 . ~/.bashrc
 cd /rpm-perl
 install -m 400 netrc ~/.netrc
 export install_server='$install_server' install_channel='$install_channel' install_debug='$install_debug'
-curl radia.run | bash -s biviosoftware/rpm-perl _build '$root' '$exe_prefix' '$app_root' '$facade_uri'
+curl radia.run | bash -s biviosoftware/rpm-perl _build $build_args
 EOF
-    rpm_perl_install_rpm "perl-$root"
+    rpm_perl_install_rpm "$rpm_base"
 }
 
 
