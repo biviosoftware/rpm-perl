@@ -205,6 +205,7 @@ rpm_perl_build_named() {
     if [[ $res ]]; then
         install_err "named-checkconf failed with: $res"
     fi
+    chgrp -R named "$db_d"
     cd /rpm-perl
     # rpm has to be world readable, because we don't know who called this program
     umask 022
@@ -314,7 +315,8 @@ rpm_perl_main() {
     umask 077
     install_tmp_dir
     cp ~/.netrc netrc
-    : ${build_args:="perl-$root $root $exe_prefix $app_root $facade_uri"}
+    : ${rpm_base:=perl-$root}
+    : ${build_args:="$rpm_base $root $exe_prefix $app_root $facade_uri"}
     docker run -i --network=host --rm -v $PWD:/rpm-perl biviosoftware/perl <<EOF
 . ~/.bashrc
 cd /rpm-perl
