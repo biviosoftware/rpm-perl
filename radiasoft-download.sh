@@ -183,8 +183,7 @@ rpm_perl_build_named() {
     local version=$(date -u +%Y%m%d.%H%M%S)
     local fpm_args=()
     install_yum_install https://depot.radiasoft.org/foss/perl-Bivio-dev.rpm
-    git clone https://github.com/biviosoftware/pkgs --depth 1
-    (cat pkgs/bivio-named.include; echo '->{NamedConf};') | bivio NamedConf generate
+    (cat /rpm-perl/bivio-named.pl; echo '->{NamedConf};') | bivio NamedConf generate
     local db_d=/srv/bivio_named/db
     mkdir -p "$db_d"
     tail -n +11 etc/named.conf > "$db_d/zones.conf"
@@ -272,6 +271,7 @@ rpm_perl_main() {
     local app_root=$root
     local facade_uri=$root_lc
     local rpm_base build_args
+    local extra_conf=
     case $1 in
         _build)
             shift
@@ -279,6 +279,10 @@ rpm_perl_main() {
             return
             ;;
         bivio-named)
+            local extra_conf=$PWD/bivio-named.pl
+            if [[ ! -r  $extra_conf ]]; then
+                install_err "$extra_conf: must exist"
+            fi
             rpm_base=bivio-named
             build_args=$rpm_base
             ;;
@@ -314,10 +318,13 @@ rpm_perl_main() {
     esac
     umask 077
     install_tmp_dir
+    if [[ $extra_conf ]]; then
+        cp "$extra_conf" .
+    fi
     cp ~/.netrc netrc
     : ${rpm_base:=perl-$root}
     : ${build_args:="$rpm_base $root $exe_prefix $app_root $facade_uri"}
-    docker run -i --network=host --rm -v $PWD:/rpm-perl biviosoftware/perl <<EOF
+    docker run -i --network=host --rm -v "$PWD":/rpm-perl biviosoftware/perl <<EOF
 . ~/.bashrc
 cd /rpm-perl
 install -m 400 netrc ~/.netrc
