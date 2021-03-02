@@ -2,13 +2,25 @@
 set -euo pipefail
 
 rpm_perl_build() {
-    local rpm_base=$1
-    if [[ $rpm_base == bivio-named ]]; then
-        rpm_perl_build_named "$rpm_base"
-        return
-    fi
-    local root=$2 exe_prefix=$3 app_root=$4 facade_uri=$5
-    install_tmp_dir
+    install -m 400 .netrc ~
+    case $1 in
+        bivio-named)
+            rpm_perl_build_named "$@"
+            ;;
+        bivio-perl)
+            rpm_perl_build_perl "$@"
+            ;;
+        perl-*)
+            rpm_perl_build_app "$@"
+            ;;
+        *)
+            install_err "bad args: $*"
+            ;;
+    esac
+}
+
+rpm_perl_build_app() {
+    local rpm_base=$1 root=$2 exe_prefix=$3 app_root=$4 facade_uri=$5
     umask 022
     local build_d=$PWD
     local facades_d=/var/www/facades
@@ -37,11 +49,7 @@ EOF
         chmod 444 /etc/bivio.bconf
         fpm_args+=( "$javascript_d" )
     else
-        install_yum_install https://depot.radiasoft.org/foss/perl-Bivio-dev.rpm
-        fpm_args+=(
-            --rpm-auto-add-exclude-directories "$facades_d"
-            --rpm-auto-add-exclude-directories "$bop_d"
-        )
+        install_yum_install $(install_foss_server)/perl-Bivio-dev.rpm
     fi
     local app_d=${app_root//::/\/}
     local files_d=$app_d/files
@@ -158,32 +166,47 @@ EOF
             ;;
     esac
     if [[ $root == Bivio ]]; then
-        # fpm is fickle if the directory is in the exclude list so need to be very explicit here
-        # "Cannot copy file, the destination path is probably a directory and I attempted to write a file."
         fpm_args+=( "$facades_d" )
     else
         fpm_args+=( "$facades_d"/* )
     fi
-    cd /rpm-perl
-    # fpm should not add the /usr/share or /var/www dirs to the %files of the rpm
-    fpm -t rpm -s dir -n "$rpm_base" -v "$version" --rpm-auto-add-directories \
-        --rpm-auto-add-exclude-directories /usr/share/perl5 \
-        --rpm-auto-add-exclude-directories /usr/share/perl5/vendor_perl \
-        --rpm-auto-add-exclude-directories /var/www \
-        --rpm-auto-add-exclude-directories /usr/java \
-        --rpm-use-file-permissions "${fpm_args[@]}"
+    find "${fpm_args[@]}" | sort > "$rpm_build_include_f"
+    echo perl-Bivio > "$rpm_build_depends_f"
+}
+
+rpm_perl_build_perl() {
+    local x=(
+        /usr/java
+        /usr/local/share/catdoc
+        /usr/local/lib64/perl5
+        /usr/local/share/perl5
+        /usr/local/bin/catdoc
+        /usr/local/bin/catppt
+        /usr/local/bin/docx2txt
+        /usr/local/bin/html2ps
+        /usr/local/bin/ldat
+        /usr/local/bin/perl2html
+        /usr/local/bin/trgrep
+        /usr/local/bin/unixtime
+        /usr/local/bin/xls2csv
+        /usr/local/awstats
+        /etc/postgrey
+        /usr/sbin/postgrey
+        /usr/share/postgrey
+    )
+    find "${x[@]}" | sort > "$rpm_build_include_f"
+    echo perl > "$rpm_build_depends_f"
 }
 
 rpm_perl_build_named() {
     local rpm_base=$1
-    install_tmp_dir
     # named config is not world readable
     umask 027
     local build_d=$PWD
     local version=$(date -u +%Y%m%d.%H%M%S)
     local fpm_args=()
-    install_yum_install https://depot.radiasoft.org/foss/perl-Bivio-dev.rpm
-    (cat /rpm-perl/bivio-named.pl; echo '->{NamedConf};') | bivio NamedConf generate
+    install_yum_install "$(install_foss_server)"/perl-Bivio-dev.rpm
+    (cat bivio-named.pl && echo '->{NamedConf};') | bivio NamedConf generate
     local db_d=/srv/bivio_named/db
     mkdir -p "$db_d"
     tail -n +11 etc/named.conf > "$db_d/zones.conf"
@@ -205,41 +228,8 @@ rpm_perl_build_named() {
         install_err "named-checkconf failed with: $res"
     fi
     chgrp -R named "$db_d"
-    cd /rpm-perl
-    # rpm has to be world readable, because we don't know who called this program
-    umask 022
-    fpm -t rpm -s dir -n "$rpm_base" -v "$version" --rpm-use-file-permissions "$db_d/"*
-}
-
-rpm_perl_create_bivio_perl() {
-    umask 077
-    install_tmp_dir
-    docker run -i --network=host --rm -v $PWD:/rpm-perl biviosoftware/perl <<'EOF'
-set -euo pipefail
-version=$(date -u +%Y%m%d.%H%M%S)
-cd /rpm-perl
-x=(
-    /usr/java
-    /usr/local/share/catdoc
-    /usr/local/lib64/perl5
-    /usr/local/share/perl5
-    /usr/local/bin/catdoc
-    /usr/local/bin/catppt
-    /usr/local/bin/docx2txt
-    /usr/local/bin/html2ps
-    /usr/local/bin/ldat
-    /usr/local/bin/perl2html
-    /usr/local/bin/trgrep
-    /usr/local/bin/unixtime
-    /usr/local/bin/xls2csv
-    /usr/local/awstats
-    /etc/postgrey
-    /usr/sbin/postgrey
-    /usr/share/postgrey
-)
-fpm -t rpm -s dir -n bivio-perl -v "$version" --rpm-auto-add-directories --rpm-use-file-permissions "${x[@]}"
-EOF
-    rpm_perl_install_rpm bivio-perl
+    find "$db_d"/* | sort > "$rpm_build_include_f"
+    echo bind > "$rpm_build_depends_f"
 }
 
 rpm_perl_install_rpm() {
@@ -273,9 +263,8 @@ rpm_perl_main() {
     local rpm_base build_args
     local extra_conf=
     case $1 in
-        _build)
-            shift
-            rpm_perl_build "$@"
+        rpm_build_do)
+            install_repo_eval rpm-build "$@"
             return
             ;;
         bivio-named)
@@ -287,8 +276,8 @@ rpm_perl_main() {
             build_args=$rpm_base
             ;;
         bivio-perl)
-            rpm_perl_create_bivio_perl
-            return
+            rpm_base=bivio-perl
+            build_args=$rpm_base
             ;;
         Artisans)
             exe_prefix=a
@@ -317,22 +306,21 @@ rpm_perl_main() {
             ;;
     esac
     umask 077
+    local p=$PWD
     install_tmp_dir
+    local t=$PWD
     if [[ $extra_conf ]]; then
         cp "$extra_conf" .
     fi
-    cp ~/.netrc netrc
+    cp ~/.netrc .
     : ${rpm_base:=perl-$root}
+    export rpm_build_user=root
     : ${build_args:="$rpm_base $root $exe_prefix $app_root $facade_uri"}
-    docker run -i --network=host --rm -v "$PWD":/rpm-perl biviosoftware/perl <<EOF
-. ~/.bashrc
-cd /rpm-perl
-install -m 400 netrc ~/.netrc
-export install_server='$install_server' install_channel='$install_channel' install_debug='$install_debug'
-curl radia.run | bash -s biviosoftware/rpm-perl _build $build_args
-EOF
+    install_repo_eval rpm-build "$rpm_base" "biviosoftware/perl" biviosoftware/rpm-perl rpm_perl_build $build_args
     rpm_perl_install_rpm "$rpm_base"
+    # only necessary for testing; the files are owned by root, and run as vagrant
+    cd "$p"
+    install_sudo rm -rf "$t"
 }
-
 
 rpm_perl_main "${install_extra_args[@]}"
