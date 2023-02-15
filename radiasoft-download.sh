@@ -176,7 +176,9 @@ EOF
 
 rpm_perl_build_perl() {
     local x=(
-        /usr/java
+        /usr/java/bcprov-jdk15-145.jar
+        /usr/java/itextpdf-5.5.8.jar
+        /usr/java/yui-compressor.jar
         /usr/local/share/catdoc
         /usr/local/lib64/perl5
         /usr/local/share/perl5
