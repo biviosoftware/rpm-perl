@@ -10,6 +10,9 @@ rpm_perl_build() {
         bivio-perl)
             rpm_perl_build_perl "$@"
             ;;
+        irs-a2a-sdk)
+            rpm_perl_build_irs_a2a_sdk "$@"
+            ;;
         perl-*)
             rpm_perl_build_app "$@"
             ;;
@@ -20,18 +23,18 @@ rpm_perl_build() {
 }
 
 rpm_perl_build_app() {
-    local rpm_base=$1 root=$2 exe_prefix=$3 app_root=$4 facade_uri=$5
+    declare rpm_base=$1 root=$2 exe_prefix=$3 app_root=$4 facade_uri=$5
     umask 022
-    local build_d=$PWD
-    local facades_d=/var/www/facades
-    local javascript_d=/usr/share/Bivio-bOP-javascript
-    local bop_d=/usr/src/bop
-    local version=$(date -u +%Y%m%d.%H%M%S)
-    local fpm_args=()
+    declare build_d=$PWD
+    declare facades_d=/var/www/facades
+    declare javascript_d=/usr/share/Bivio-bOP-javascript
+    declare bop_d=/usr/src/bop
+    declare version=$(date -u +%Y%m%d.%H%M%S)
+    declare fpm_args=()
     if [[ $root == Bivio ]]; then
         mkdir "$javascript_d"
         # No channels here, because the image gets the channel tag
-        git clone --recursive --depth 1 https://github.com/biviosoftware/javascript-Bivio
+        rpm_perl_git_clone javascript-Bivio
         cd javascript-Bivio
         bash build.sh "$javascript_d"
         cd ..
@@ -51,9 +54,9 @@ EOF
     else
         install_yum_install $(install_foss_server)/perl-Bivio-dev.rpm
     fi
-    local app_d=${app_root//::/\/}
-    local files_d=$app_d/files
-    git clone https://github.com/biviosoftware/"$rpm_base" --depth 1
+    declare app_d=${app_root//::/\/}
+    declare files_d=$app_d/files
+    rpm_perl_git_clone "$rpm_base"
     mv "$rpm_base" "$root"
     # POSTIT: radiasoft/rsconf/rsconf/component/btest.py
     mkdir -p "$bop_d"
@@ -61,7 +64,7 @@ EOF
     chmod -R a+rX "$bop_d"
     if [[ $root == Bivio ]]; then
         # POSIT: radiasoft/rsconf/rsconf/component/bop.py
-        local src_d=/usr/share/Bivio-bOP-src
+        declare src_d=/usr/share/Bivio-bOP-src
         mkdir -m 755 -p "$src_d"
         rsync -a --exclude .git "$bop_d/$root" "$src_d/"
         # perl-Bivio installs directory
@@ -108,10 +111,10 @@ EOF
         "/usr/share/perl5/vendor_perl/$root"
     )
     rm -rf "$facades_d"
-    local tgt=$facades_d
+    declare tgt=$facades_d
     mkdir -p "$(dirname "$tgt")" "$tgt"
     cd "$files_d"
-    local dirs
+    declare dirs
     if [[ -d ddl || -d plain ]]; then
 	tgt=$tgt/$facade_uri
         # view is historical for Artisans (slideshow and extremeperl)
@@ -123,11 +126,8 @@ EOF
     fi
     find "${dirs[@]}" -type l -print -o -type f -print \
 	| tar Tcf - - | (cd "$tgt"; tar xpf -)
-    (
-        set -e
-	set -x
-        export BCONF=$build_d/build.bconf
-        cat > "$BCONF" <<EOF
+    declare bconf_f=$build_d/build.bconf
+    cat > "$bconf_f" <<EOF
 use strict;
 use $app_root::BConf;
 $app_root::BConf->merge_dir({
@@ -139,8 +139,7 @@ $app_root::BConf->merge_dir({
     },
 });
 EOF
-        bivio project link_facade_files
-    )
+    BCONF=$bconf_f bivio project link_facade_files
     for facade in "$facades_d"/*; do
         if [[ ! -L $facade ]]; then
             mkdir -p "$facade/plain"
@@ -149,18 +148,11 @@ EOF
     done
     case $root in
         Societas)
-            (
-                cd "$build_d"/Societas/files/java
-                javac *.java
-                jar -cf /usr/java/societas.jar *.class
-            )
+            cd "$build_d"/Societas/files/java
+            javac *.java
+            jar -cf /usr/java/societas.jar *.class
+            cd -
             fpm_args+=( /usr/java/societas.jar )
-            ;;
-        BivioOrg)
-            (
-                cd "$facades_d"
-                ln -s -r bivio.org viarob.com
-            )
             ;;
         *)
             ;;
@@ -174,8 +166,26 @@ EOF
     echo perl-Bivio > "$rpm_build_depends_f"
 }
 
+rpm_perl_build_irs_a2a_sdk() {
+    umask 022
+    declare build_d=$PWD
+    rpm_perl_git_clone irs-a2a-sdk
+    cd irs-a2a-sdk
+    declare d=/usr/java
+    mkdir -p "$d"
+    for f in *.jar; do
+        install -m 444 "$f" "$d/$f"
+        echo "$d/$f"
+    done | sort > "$rpm_build_include_f"
+    mkdir -p /usr/local/irs-a2a-sdk/config
+    cp config/* /usr/local/irs-a2a-sdk/config
+    chmod a+rX /usr/local/irs-a2a-sdk
+    find /usr/local/irs-a2a-sdk | sort >> "$rpm_build_include_f"
+    echo java > "$rpm_build_depends_f"
+}
+
 rpm_perl_build_perl() {
-    local x=(
+    declare x=(
         /usr/java/bcprov-jdk15-145.jar
         /usr/java/itextpdf-5.5.8.jar
         /usr/java/yui-compressor.jar
@@ -201,15 +211,15 @@ rpm_perl_build_perl() {
 }
 
 rpm_perl_build_named() {
-    local rpm_base=$1
+    declare rpm_base=$1
     # named config is not world readable
     umask 027
-    local build_d=$PWD
-    local version=$(date -u +%Y%m%d.%H%M%S)
-    local fpm_args=()
+    declare build_d=$PWD
+    declare version=$(date -u +%Y%m%d.%H%M%S)
+    declare fpm_args=()
     install_yum_install "$(install_foss_server)"/perl-Bivio-dev.rpm
     (cat bivio-named.pl && echo '->{NamedConf};') | bivio NamedConf generate
-    local db_d=/srv/bivio_named/db
+    declare db_d=/srv/bivio_named/db
     mkdir -p "$db_d"
     tail -n +11 etc/named.conf > "$db_d/zones.conf"
     # We expect something like: zone .*.in-addr.arpa" in {
@@ -219,9 +229,9 @@ rpm_perl_build_named() {
         install_err "$db_d/zones.conf: expecting zone "." in {: got $(head -5 $db_d/zones.conf)"
     fi
     mv var/named/* "$db_d"
-    local tmp_conf=$build_d/tmp.conf
+    declare tmp_conf=$build_d/tmp.conf
     perl -pe "s{/var/named}{$db_d}" etc/named.conf > "$tmp_conf"
-    local res=$(
+    declare res=$(
         named-checkconf -z "$tmp_conf" \
         | grep -v 'zone.*loaded.serial' \
         | grep -v '_sip.*/SRV.*is a CNAME .illegal.'
@@ -234,15 +244,19 @@ rpm_perl_build_named() {
     echo bind > "$rpm_build_depends_f"
 }
 
+rpm_perl_git_clone() {
+    git clone --depth 1 https://github.com/biviosoftware/"$1"
+}
+
 rpm_perl_install_rpm() {
-    local base=$1
+    declare base=$1
     if [[ ! ${rpm_perl_install_dir:-} ]]; then
         return
     fi
     # Y2100
-    local f="$(ls -t "$base"-20[0-9][0-9]*rpm | head -1)"
+    declare f="$(ls -t "$base"-20[0-9][0-9]*rpm | head -1)"
     # Contains multiple directories separated by spaces
-    local c d l
+    declare c d l
     for d in $rpm_perl_install_dir; do
         install -m 444 "$f" "$d/"
         for c in dev alpha; do
@@ -255,22 +269,22 @@ rpm_perl_install_rpm() {
 
 rpm_perl_main() {
     if (( $# < 1 )); then
-        install_err 'must supply bivio-perl or Root (for perl-Root)'
+        install_err 'must supply bivio-perl, Root (for perl-Root), etc.'
     fi
-    local root=$1
-    local root_lc=${root,,}
-    local exe_prefix
-    local app_root=$root
-    local facade_uri=$root_lc
-    local rpm_base build_args
-    local extra_conf=
+    declare root=$1
+    declare root_lc=${root,,}
+    declare exe_prefix
+    declare app_root=$root
+    declare facade_uri=$root_lc
+    declare rpm_base build_args
+    declare extra_conf=
     case $1 in
         rpm_build_do)
             install_repo_eval rpm-build "$@"
             return
             ;;
         bivio-named)
-            local extra_conf=$PWD/bivio-named.pl
+            declare extra_conf=$PWD/bivio-named.pl
             if [[ ! -r  $extra_conf ]]; then
                 install_err "$extra_conf: must exist"
             fi
@@ -281,6 +295,10 @@ rpm_perl_main() {
             rpm_base=bivio-perl
             build_args=$rpm_base
             ;;
+        irs-a2a-sdk)
+            rpm_base=irs-a2a-sdk
+            build_args=$rpm_base
+            ;;
         Artisans)
             exe_prefix=a
             ;;
@@ -288,10 +306,6 @@ rpm_perl_main() {
             app_root=Bivio::PetShop
             exe_prefix=b
             facade_uri=petshop
-            ;;
-        BivioOrg)
-            exe_prefix=bo
-            facade_uri=bivio.org
             ;;
         Sensorimotor)
             exe_prefix=sp
@@ -308,9 +322,9 @@ rpm_perl_main() {
             ;;
     esac
     umask 077
-    local p=$PWD
+    declare p=$PWD
     install_tmp_dir
-    local t=$PWD
+    declare t=$PWD
     if [[ $extra_conf ]]; then
         cp "$extra_conf" .
     fi
