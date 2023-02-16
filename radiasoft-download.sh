@@ -148,6 +148,11 @@ EOF
     done
     case $root in
         Societas)
+            cd "$build_d"
+            rpm_perl_git_clone irs-a2a-sdk
+            cd irs-a2a-sdk
+            source install-jdk8.sh
+            export CLASSPATH="$PWD/*:/usr/java/*"
             cd "$build_d"/Societas/files/java
             javac *.java
             jar -cf /usr/java/societas.jar *.class
@@ -168,7 +173,6 @@ EOF
 
 rpm_perl_build_irs_a2a_sdk() {
     umask 022
-    declare build_d=$PWD
     rpm_perl_git_clone irs-a2a-sdk
     cd irs-a2a-sdk
     declare d=/usr/java
