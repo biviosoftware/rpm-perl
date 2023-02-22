@@ -156,7 +156,7 @@ EOF
             cd "$build_d"/Societas/files/java
             javac *.java
             jar -cf /usr/java/societas.jar *.class
-            cd -
+            cd "$build_d"
             fpm_args+=( /usr/java/societas.jar )
             ;;
         *)
@@ -172,8 +172,10 @@ EOF
 }
 
 rpm_perl_build_irs_a2a_sdk() {
+    declare build_d=$PWD
     umask 022
     rpm_perl_git_clone irs-a2a-sdk
+    rpm_perl_git_clone irs-1065-schemas
     cd irs-a2a-sdk
     declare d=/usr/java
     mkdir -p "$d"
@@ -181,10 +183,18 @@ rpm_perl_build_irs_a2a_sdk() {
         install -m 444 "$f" "$d/$f"
         echo "$d/$f"
     done | sort > "$rpm_build_include_f"
-    mkdir -p /usr/local/irs-a2a-sdk/config
-    cp config/* /usr/local/irs-a2a-sdk/config
-    chmod a+rX /usr/local/irs-a2a-sdk
-    find /usr/local/irs-a2a-sdk | sort >> "$rpm_build_include_f"
+    d=/usr/local/irs-a2a-sdk
+    declare -a dirs=( $d )
+    mkdir -p "$d"/config
+    cp config/* "$d"/config
+    cd ../irs-1065-schemas
+    d=/usr/local/irs-1065-schemas
+    dirs+=( $d )
+    mkdir -p "$d"
+    cp -a 2*v* "$d"
+    cd "$build_d"
+    chmod a+rX "${dirs[@]}"
+    find "${dirs[@]}" | sort >> "$rpm_build_include_f"
     echo java > "$rpm_build_depends_f"
 }
 
