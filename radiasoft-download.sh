@@ -33,6 +33,10 @@ rpm_perl_build_app() {
     declare fpm_args=()
     if [[ $root == Bivio ]]; then
         mkdir "$javascript_d"
+        rpm_perl_git_clone irs-a2a-sdk
+        source irs-a2a-sdk/install-jdk8.sh
+        rm -rf irs-a2a-sdk
+        export CLASSPATH="/usr/java/*"
         # No channels here, because the image gets the channel tag
         rpm_perl_git_clone javascript-Bivio
         cd javascript-Bivio
