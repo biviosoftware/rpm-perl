@@ -28,21 +28,27 @@ rpm_perl_build_app() {
     declare build_d=$PWD
     declare facades_d=/var/www/facades
     declare javascript_d=/usr/share/Bivio-bOP-javascript
+    declare weak_pw_d=/usr/share/Bivio-bOP-weak-password
     declare bop_d=/usr/src/bop
     declare version=$(date -u +%Y%m%d.%H%M%S)
     declare fpm_args=()
     if [[ $root == Bivio ]]; then
-        mkdir "$javascript_d"
         rpm_perl_git_clone irs-a2a-sdk
         source irs-a2a-sdk/install-jdk8.sh
         rm -rf irs-a2a-sdk
         export CLASSPATH="/usr/java/*"
+        mkdir "$javascript_d"
         # No channels here, because the image gets the channel tag
         rpm_perl_git_clone javascript-Bivio
         cd javascript-Bivio
         bash build.sh "$javascript_d"
         cd ..
         rm -rf javascript-Bivio
+        rpm_perl_git_clone weak-password
+        cd weak-password
+        bash build.sh "$weak_pw_d"
+        cd ..
+        rm -rf weak-password
         #TODO(robnagler) move this to master when in production
         cat > /etc/bivio.bconf <<'EOF'
 use Bivio::DefaultBConf;
@@ -54,7 +60,7 @@ Bivio::DefaultBConf->merge_dir({
 });
 EOF
         chmod 444 /etc/bivio.bconf
-        fpm_args+=( "$javascript_d" )
+        fpm_args+=( "$javascript_d" "$weak_pw_d" )
     else
         install_yum_install $(install_foss_server)/perl-Bivio-dev.rpm
     fi
