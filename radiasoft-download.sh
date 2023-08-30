@@ -44,6 +44,7 @@ rpm_perl_build_app() {
         bash build.sh "$javascript_d"
         cd ..
         rm -rf javascript-Bivio
+        mkdir "$weak_pw_d"
         rpm_perl_git_clone weak-password
         cd weak-password
         bash build.sh "$weak_pw_d"
