@@ -185,8 +185,10 @@ EOF
 rpm_perl_build_irs_a2a_sdk() {
     declare build_d=$PWD
     umask 022
-    rpm_perl_git_clone irs-a2a-sdk
-    rpm_perl_git_clone irs-1065-schemas
+    declare -a schemas=( irs-1065-schemas ca-efile-schemas co-efile-schemas )
+    for r in irs-a2a-sdk "${schemas[@]}"; do
+        rpm_perl_git_clone "$r"
+    done
     cd irs-a2a-sdk
     declare d=/usr/java
     mkdir -p "$d"
@@ -198,11 +200,13 @@ rpm_perl_build_irs_a2a_sdk() {
     declare -a dirs=( $d )
     mkdir -p "$d"/config
     cp config/* "$d"/config
-    cd ../irs-1065-schemas
-    d=/usr/local/irs-1065-schemas
-    dirs+=( $d )
-    mkdir -p "$d"
-    cp -a 2*v* "$d"
+    for s in "${schemas[@]}"; do
+        cd "../$s"
+        d="/usr/local/$s"
+        dirs+=( $d )
+        mkdir -p "$d"
+        cp -a 2*v* "$d"
+    done
     cd "$build_d"
     chmod a+rX "${dirs[@]}"
     find "${dirs[@]}" | sort >> "$rpm_build_include_f"
