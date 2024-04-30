@@ -1,5 +1,6 @@
 #!/bin/bash
-set -euo pipefail
+
+_opendkim_json=opendkim-named.json
 
 rpm_perl_build() {
     install -m 400 .netrc ~
@@ -247,7 +248,11 @@ rpm_perl_build_named() {
     declare version=$(date -u +%Y%m%d.%H%M%S)
     declare fpm_args=()
     install_yum_install "$(install_foss_server)"/perl-Bivio-dev.rpm
-    (cat bivio-named.pl && echo '->{NamedConf};') | bivio NamedConf generate
+    declare -a c=( generate )
+    if [[ -r $_opendkim_json ]]; then
+        c+=( "$_opendkim_json" )
+    fi
+    (cat bivio-named.pl && echo '->{NamedConf};') | bivio NamedConf "${c[@]}"
     declare db_d=/srv/bivio_named/db
     mkdir -p "$db_d"
     tail -n +11 etc/named.conf > "$db_d/zones.conf"
@@ -313,9 +318,13 @@ rpm_perl_main() {
             return
             ;;
         bivio-named)
-            declare extra_conf=$PWD/bivio-named.pl
-            if [[ ! -r  $extra_conf ]]; then
-                install_err "$extra_conf: must exist"
+            declare -a extra_conf=( "$PWD/bivio-named.pl" )
+            if [[ ! -r ${extra_conf[0]} ]]; then
+                install_err "${extra_conf[0]}: must exist"
+            fi
+            declare f=$PWD/$_opendkim_json
+            if [[ -r $f ]]; then
+                extra_conf+=( "$f" )
             fi
             rpm_base=bivio-named
             build_args=$rpm_base
@@ -355,7 +364,7 @@ rpm_perl_main() {
     install_tmp_dir
     declare t=$PWD
     if [[ $extra_conf ]]; then
-        cp "$extra_conf" .
+        cp "${extra_conf[@]}" .
     fi
     cp ~/.netrc .
     : ${rpm_base:=perl-$root}
