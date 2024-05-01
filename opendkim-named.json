@@ -1,0 +1,5 @@
+{
+    "example.com": {
+        "20240328._domainkey": "\"v=DKIM1; k=rsa; \" \"p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnl730rl+xh4YrPWYfyy9LpknJGztAS3EEElQqLkunYDIuAvynZFOluFLeIBNbea132y7theOgtcgMP6dFNbk7rU6iw+ity542NQIlJMHOxnwKvhPQ40dE8we3WUlUBtrv3OS+fYMt26xTeFE52QygaBEV8qqL0nxKtohCFLVxXTpwZ/DESJ+V/OR/U6mw4PwIhqGov0P8mf24f\" \"Fg98YtfIq0I7wwfcPth8Pr8uddYB/ZQGFovdVJlcda3cPFxQDz+jCJHllmo799I+ZvGGPyMLIACXjEGj0gYFLfIoeGYfOhC/vSolkk/Oz7SKZecEoE6vyy6VEtG3BnlUZvBFF9TQIDAQAB\""
+    }
+}

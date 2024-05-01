@@ -2,40 +2,70 @@
 source ~/.bashrc
 set -euo pipefail
 source ~/src/radiasoft/download/installers/rpm-code/dev-env.sh
-cd -
+cd - &> /dev/null
+
 _err() {
     echo ERROR: "$@"
     return 1
 }
 
 _t() {
-    local module=$1
-    local -A w=()
+    declare module=$1
+    declare -A w=()
     w['provides']=$2
     w['requires']=$3
     w['list']=$4
-    local y=
+    declare y=
     if [[ $module =~ ^[A-Z] ]]; then
         y=perl-
     fi
-    local x=$rpm_perl_install_dir/$y$module-dev.rpm
+    declare x=$rpm_perl_install_dir/$y$module-dev.rpm
     radia_run biviosoftware/rpm-perl "$module"
-    local p=$(find "$x"  -mmin -1)
+    declare p=$(find "$x"  -mmin -1)
     if [[ ! $p ]]; then
         _err "$x is not recent"
     fi
-    local c
+    declare c
     for i in "${!w[@]}"; do
         c=( rpm -qp --"$i" "$p" )
-        if (( $( "${c[@]}" | wc -l) != ${w[$i]} )); then
-            _err "${c[*]} != ${w[$i]}"
+        x=$( "${c[@]}" | wc -l)
+        if (( $x != ${w[$i]} )); then
+            _err "${c[*]} $x != ${w[$i]}"
         fi
     done
     echo "$module: PASSED"
 }
 
-_t bivio-perl 2 3 151
-_t bivio-named 2 3 7
-_t Artisans 2 3 1414
-# the last number might change
-_t Bivio 2 3 7086
+_main() {
+    declare -a args=( "$@" )
+    if [[ ! ${!args[@]} ]]; then
+        args=( bivio-perl bivio-named Artisans Bivio )
+    fi
+    declare c
+    for c in "${args[@]}"; do
+        case $c in
+            bivio-perl)
+                _t bivio-perl 2 3 150
+                ;;
+            bivio-named)
+                _t bivio-named 2 3 7
+                ;;
+            Artisans)
+                _t Artisans 2 3 1414
+                ;;
+            Bivio)
+                # the last number will likely change
+                _t Bivio 2 3 7120
+                ;;
+            *.rpm)
+                echo Extracting files from: "$c"
+                rpm2cpio "$c" | cpio -idv --no-absolute-filenames
+                ;;
+            *)
+                _err "unknown case=$c"
+                ;;
+        esac
+    done
+}
+
+_main "$@"
