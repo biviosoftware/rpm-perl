@@ -64,7 +64,7 @@ EOF
         chmod 444 /etc/bivio.bconf
         fpm_args+=( "$javascript_d" "$weak_pw_d" )
     else
-        install_yum_install $(install_foss_server)/perl-Bivio-dev.rpm
+        rpm_perl_install_bivio_rpm
     fi
     declare app_d=${app_root//::/\/}
     declare files_d=$app_d/files
@@ -247,7 +247,7 @@ rpm_perl_build_named() {
     declare build_d=$PWD
     declare version=$(date -u +%Y%m%d.%H%M%S)
     declare fpm_args=()
-    install_yum_install "$(install_foss_server)"/perl-Bivio-dev.rpm
+    rpm_perl_install_bivio_rpm
     declare -a c=( generate )
     if [[ -r $_opendkim_json ]]; then
         c+=( "$_opendkim_json" )
@@ -278,9 +278,28 @@ rpm_perl_build_named() {
     echo bind > "$rpm_build_depends_f"
 }
 
-rpm_perl_git_clone() {
-    git clone --depth 1 https://github.com/biviosoftware/"$1"
+rpm_perl_copy_bivio_rpm() {
+    # POSIT: Contains multiple directories separated by spaces
+    declare f=${rpm_perl_install_dir%% *}/perl-Bivio-dev.rpm
+    if [[ -r $f ]]; then
+        cp "$f" .
+    fi
 }
+
+rpm_perl_git_clone() {
+    install_git_clone https://github.com/biviosoftware/"$1"
+}
+
+rpm_perl_install_bivio_rpm() {
+    # rpm_perl_copy_bivio_rpm puts it here
+    declare f=perl-Bivio-dev.rpm
+    if ! [[ -r $f ]]; then
+        # Only used development, but will work regardless
+        f=$(install_foss_server)/$f
+    fi
+    install_yum_install "$f"
+}
+
 
 rpm_perl_install_rpm() {
     declare base=$1
@@ -289,8 +308,8 @@ rpm_perl_install_rpm() {
     fi
     # Y2100
     declare f="$(ls -t "$base"-20[0-9][0-9]*rpm | head -1)"
-    # Contains multiple directories separated by spaces
     declare c d l
+    # POSIT: Contains multiple directories separated by spaces
     for d in $rpm_perl_install_dir; do
         install -m 444 "$f" "$d/"
         for c in dev alpha; do
@@ -366,6 +385,7 @@ rpm_perl_main() {
     if [[ $extra_conf ]]; then
         cp "${extra_conf[@]}" .
     fi
+    rpm_perl_copy_bivio_rpm
     cp ~/.netrc .
     : ${rpm_base:=perl-$root}
     export rpm_build_user=root

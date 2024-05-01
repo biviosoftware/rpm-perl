@@ -2,7 +2,8 @@
 source ~/.bashrc
 set -euo pipefail
 source ~/src/radiasoft/download/installers/rpm-code/dev-env.sh
-cd -
+cd - &> /dev/null
+
 _err() {
     echo ERROR: "$@"
     return 1
@@ -35,8 +36,36 @@ _t() {
     echo "$module: PASSED"
 }
 
-_t bivio-perl 2 3 150
-_t bivio-named 2 3 7
-_t Artisans 2 3 1414
-# the last number might change
-_t Bivio 2 3 7114
+_main() {
+    declare -a args=( "$@" )
+    if [[ ! ${!args[@]} ]]; then
+        args=( bivio-perl bivio-named Artisans Bivio )
+    fi
+    declare c
+    for c in "${args[@]}"; do
+        case $c in
+            bivio-perl)
+                _t bivio-perl 2 3 150
+                ;;
+            bivio-named)
+                _t bivio-named 2 3 7
+                ;;
+            Artisans)
+                _t Artisans 2 3 1414
+                ;;
+            Bivio)
+                # the last number will likely change
+                _t Bivio 2 3 7120
+                ;;
+            *.rpm)
+                echo Extracting files from: "$c"
+                rpm2cpio "$c" | cpio -idv --no-absolute-filenames
+                ;;
+            *)
+                _err "unknown case=$c"
+                ;;
+        esac
+    done
+}
+
+_main "$@"
