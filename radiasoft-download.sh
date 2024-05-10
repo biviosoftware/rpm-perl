@@ -1,6 +1,6 @@
 #!/bin/bash
 
-_opendkim_json=opendkim-named.json
+_named_json=*-named.json
 
 rpm_perl_build() {
     install -m 400 .netrc ~
@@ -249,9 +249,10 @@ rpm_perl_build_named() {
     declare fpm_args=()
     rpm_perl_install_bivio_rpm
     declare -a c=( generate )
-    if [[ -r $_opendkim_json ]]; then
-        c+=( "$_opendkim_json" )
-    fi
+    declare f
+    shopt -s nullglob
+    c+=( $_named_json )
+    shopt -u nullglob
     (cat bivio-named.pl && echo '->{NamedConf};') | bivio NamedConf "${c[@]}"
     declare db_d=/srv/bivio_named/db
     mkdir -p "$db_d"
@@ -341,10 +342,10 @@ rpm_perl_main() {
             if [[ ! -r ${extra_conf[0]} ]]; then
                 install_err "${extra_conf[0]}: must exist"
             fi
-            declare f=$PWD/$_opendkim_json
-            if [[ -r $f ]]; then
-                extra_conf+=( "$f" )
-            fi
+            shopt -s nullglob
+            # POSIT: no spaces in paths
+            extra_conf+=( $PWD/$_named_json )
+            shopt -u nullglob
             rpm_base=bivio-named
             build_args=$rpm_base
             ;;
