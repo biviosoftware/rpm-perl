@@ -186,7 +186,7 @@ EOF
 rpm_perl_build_irs_a2a_sdk() {
     declare build_d=$PWD
     umask 022
-    declare -a schemas=( irs-1065-schemas ca-efile-schemas co-efile-schemas )
+    declare -a schemas=( irs-efile-schemas ca-efile-schemas co-efile-schemas )
     for r in irs-a2a-sdk "${schemas[@]}"; do
         rpm_perl_git_clone "$r"
     done
