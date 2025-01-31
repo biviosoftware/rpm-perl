@@ -206,7 +206,8 @@ rpm_perl_build_irs_a2a_sdk() {
         d="/usr/local/$s"
         dirs+=( $d )
         mkdir -p "$d"
-        cp -a 2*v* "$d"
+        rm -rf .git
+        cp -a * "$d"
     done
     cd "$build_d"
     chmod a+rX "${dirs[@]}"
