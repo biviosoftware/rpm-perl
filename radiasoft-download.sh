@@ -30,6 +30,7 @@ rpm_perl_build_app() {
     declare facades_d=/var/www/facades
     declare javascript_d=/usr/share/Bivio-bOP-javascript
     declare weak_pw_d=/usr/share/Bivio-bOP-weak-password
+    declare mnemonic_code_d=/usr/share/Bivio-bOP-mnemonic-code
     declare bop_d=/usr/src/bop
     declare version=$(date -u +%Y%m%d.%H%M%S)
     declare fpm_args=()
@@ -51,6 +52,12 @@ rpm_perl_build_app() {
         bash build.sh "$weak_pw_d"
         cd ..
         rm -rf weak-password
+        mkdir "$weak_pw_d"
+        rpm_perl_git_clone mnemonic-code
+        cd mnemonic-code
+        bash build.sh "$mnemonic_code_d"
+        cd ..
+        rm -rf mnemonic-code
         #TODO(robnagler) move this to master when in production
         cat > /etc/bivio.bconf <<'EOF'
 use Bivio::DefaultBConf;
@@ -62,7 +69,7 @@ Bivio::DefaultBConf->merge_dir({
 });
 EOF
         chmod 444 /etc/bivio.bconf
-        fpm_args+=( "$javascript_d" "$weak_pw_d" )
+        fpm_args+=( "$javascript_d" "$weak_pw_d" "$mnemonic_code_d" )
     else
         rpm_perl_install_bivio_rpm
     fi
