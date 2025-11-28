@@ -52,7 +52,7 @@ rpm_perl_build_app() {
         bash build.sh "$weak_pw_d"
         cd ..
         rm -rf weak-password
-        mkdir "$weak_pw_d"
+        mkdir "$mnemonic_code_d"
         rpm_perl_git_clone mnemonic-code
         cd mnemonic-code
         bash build.sh "$mnemonic_code_d"
