@@ -177,6 +177,14 @@ EOF
             jar -cf /usr/java/societas.jar *.class
             cd "$build_d"
             fpm_args+=( /usr/java/societas.jar )
+            declare irs_device_fingerprint_d=/usr/share/irs-device-fingerprint
+            mkdir "$irs_device_fingerprint_d"
+            rpm_perl_git_clone irs-device-fingerprint
+            cd irs-device-fingerprint
+            bash build.sh "$irs_device_fingerprint_d"
+            cd ..
+            rm -rf irs-device-fingerprint
+            fpm_args+=( "$irs_device_fingerprint_d" )
             ;;
         *)
             ;;
