@@ -381,9 +381,6 @@ rpm_perl_main() {
             exe_prefix=b
             facade_uri=petshop
             ;;
-        Sensorimotor)
-            exe_prefix=sp
-            ;;
         Societas)
             exe_prefix=s
             ;;
